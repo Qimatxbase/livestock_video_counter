@@ -1,0 +1,32 @@
+{
+  "dataset": "jonaden/pig-detection-and-tracking",
+  "subset": "PigDetect",
+  "model": "YOLOv8n",
+  "training_config": {
+    "epochs": 50,
+    "batch_size": 8,
+    "imgsz": 640,
+    "device": "0",
+    "patience": 10
+  },
+  "dataset_splits": {
+    "train": {
+      "images": 2431,
+      "labels": 2431
+    },
+    "val": {
+      "images": 250,
+      "labels": 250
+    },
+    "test": {
+      "images": 250,
+      "labels": 250
+    }
+  },
+  "validation_metrics": {
+    "box_map50": 0.9852851562475097,
+    "box_map": 0.8283513981603379,
+    "box_precision": 0.966421976041065,
+    "box_recall": 0.9469525959367946
+  }
+}
