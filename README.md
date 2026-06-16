@@ -1,168 +1,131 @@
 # Pig Count
 
-MLOps-style project for preparing PigDetect data, training YOLOv8 on Kaggle, and running a Streamlit app that counts pigs in uploaded videos with tracking and a configurable counting line.
+MLOps-style project for training YOLOv8 on the PigDetect dataset on Kaggle and running a Streamlit app that counts pigs in uploaded videos with automatic tracking and a configurable counting line.
 
 ## Project Structure
 
-```text
+```
 pig_count/
-  app.py
-  requirements.txt
-  requirements-kaggle.txt
-  .streamlit/config.toml
-  kaggle/train_yolo_kaggle.py
-  kaggle/kernel-metadata.json
-  models/pigdetect_best.pt
-  outputs/
-  scripts/prepara_data/prepare_data.py
-  scripts/upload_datakaggle/upload_datakaggle.py
-  scripts/setup_git_repo.sh
-  scripts/update_best_from_git.sh
-  scripts/run_streamlit_local.sh
-  training_artifacts/
+├── app.py
+├── requirements.txt
+├── README.md
+├── .gitignore
+├── .streamlit/
+│   └── config.toml
+├── models/
+│   ├── .gitkeep
+│   └── pigdetect_best.pt
+├── outputs/
+│   └── .gitkeep
+├── notebooks/
+│   └── pig_train_kaggle.ipynb
+└── utils/
+    └── video_counting.py
 ```
 
-Raw datasets, videos, zip archives, credentials, and secrets are ignored by Git.
+## Workflow
 
-## 1. Prepare Data
+### 1. Train on Kaggle
 
-Use the local or Colab working directory:
+1. Open [Kaggle](https://kaggle.com) and create a new notebook
+2. Upload or import `notebooks/pig_train_kaggle.ipynb`
+3. **Enable Internet** in notebook settings
+4. **Enable GPU** (recommended)
+5. Add Kaggle Secret:
+   - Name: `HF_TOKEN`
+   - Value: Your Hugging Face token (get it from [hf.co/settings/tokens](https://huggingface.co/settings/tokens))
+6. Run all cells
+7. Download these files from the notebook output:
+   - `pigdetect_best.pt` (required)
+   - `pigdetect_last.pt` (optional)
+   - `training_summary.json` (optional)
+   - `pig_training_outputs.zip` (optional)
+
+### 2. Add Model to Project
+
+Place the downloaded `pigdetect_best.pt` into:
 
 ```bash
-python scripts/prepara_data/prepare_data.py \
-  --work-dir /content/drive/MyDrive/Deep_learning/YOLO \
-  --download-full
-```
-
-This downloads `jonaden/pig-detection-and-tracking`, extracts `PigDetect.zip`, converts the COCO detection subset to YOLO format, writes `yolo_pigdetect/pig.yaml`, and creates `yolo_pigdetect.zip`.
-
-Use `--force` to rebuild existing outputs:
-
-```bash
-python scripts/prepara_data/prepare_data.py \
-  --work-dir /content/drive/MyDrive/Deep_learning/YOLO \
-  --download-full \
-  --force
-```
-
-## 2. Upload Kaggle Datasets
-
-Install Kaggle dependencies and make sure `~/.kaggle/kaggle.json` already exists.
-
-```bash
-python -m pip install -r requirements-kaggle.txt
-python scripts/upload_datakaggle/upload_datakaggle.py \
-  --username YOUR_KAGGLE_USERNAME \
-  --hf-full-path /content/drive/MyDrive/Deep_learning/YOLO/hf_full_archive \
-  --yolo-path /content/drive/MyDrive/Deep_learning/YOLO/yolo_pigdetect
-```
-
-The script creates or versions:
-
-- `pig-hf-full-archive`
-- `yolo-pigdetect`
-
-No Kaggle credentials are hard-coded.
-
-## 3. Train on Kaggle
-
-Upload or attach the `yolo-pigdetect` Kaggle Dataset to a GPU notebook/script. The expected input path is:
-
-```text
-/kaggle/input/yolo-pigdetect/yolo_pigdetect
-```
-
-Run:
-
-```bash
-python kaggle/train_yolo_kaggle.py
-```
-
-The training script uses:
-
-- `yolov8n.pt`
-- `epochs=50`
-- `imgsz=640`
-- `batch=8`
-- `workers=0`
-- `patience=10`
-
-Kaggle outputs include:
-
-- `/kaggle/working/pigdetect_best.pt`
-- `/kaggle/working/pigdetect_last.pt`
-- `/kaggle/working/training_summary.json`
-- `/kaggle/working/training_artifacts/results.csv`
-- copied training plots and result files
-
-## 4. Push Artifacts from Kaggle to GitHub
-
-Set Kaggle secrets or environment variables:
-
-```bash
-GITHUB_TOKEN
-GITHUB_REPO
-GITHUB_USER_NAME
-GITHUB_USER_EMAIL
-```
-
-`GITHUB_REPO` should look like:
-
-```text
-owner/repository
-```
-
-When these values are available, the Kaggle script pushes:
-
-- `models/pigdetect_best.pt`
-- `training_artifacts/training_summary.json`
-- `training_artifacts/results.csv`
-
-If the variables are missing, training still completes and the push is skipped.
-
-## 5. Pull the Best Model Locally
-
-After Kaggle pushes the trained model:
-
-```bash
-bash scripts/update_best_from_git.sh
-```
-
-This pulls the latest GitHub state and checks that `models/pigdetect_best.pt` exists.
-
-## 6. Run the Streamlit App Locally
-
-```bash
-bash scripts/run_streamlit_local.sh
-```
-
-Or run manually:
-
-```bash
-python -m pip install -r requirements.txt
-streamlit run app.py
-```
-
-The app loads:
-
-```text
 models/pigdetect_best.pt
 ```
 
-It accepts uploaded `.mp4`, `.mov`, `.avi`, and `.mkv` videos. For each uploaded video it runs YOLO tracking frame by frame, draws bounding boxes, track IDs, center points, the counting line, and the total count, then saves an annotated video under `outputs/` with a download button.
+### 3. Run Streamlit Locally
 
-## 7. Deploy to Streamlit Community Cloud
-
-Push this repository to GitHub with:
+Install dependencies:
 
 ```bash
-bash scripts/setup_git_repo.sh https://github.com/Qimatxbase/pigs_count
+pip install -r requirements.txt
 ```
 
-Then deploy the GitHub repo in Streamlit Community Cloud with `app.py` as the entrypoint. Make sure `models/pigdetect_best.pt` is present in the repo. If the model is larger than 100MB, use Git LFS because GitHub blocks normal files above that limit.
+Run the app:
+
+```bash
+streamlit run app.py
+```
+
+The app will open at `http://localhost:8501`
+
+**Using the app:**
+1. Adjust detection, tracking, and counting settings in the sidebar
+2. Upload a pig video (`.mp4`, `.mov`, `.avi`, `.mkv`)
+3. Wait for processing
+4. View the annotated video with pig counts
+5. Download the output video
+
+### 4. Deploy to Streamlit Community Cloud
+
+1. Push this repository to GitHub:
+
+```bash
+git remote add origin https://github.com/YOUR_USER/YOUR_REPO.git
+git branch -M main
+git push -u origin main
+```
+
+2. Make sure `models/pigdetect_best.pt` is committed to the repository
+
+3. Go to [Streamlit Community Cloud](https://share.streamlit.io)
+
+4. Click "New app" and deploy from your GitHub repo
+
+5. Set entrypoint to `app.py`
+
+## App Features
+
+- **YOLO Detection**: Real-time pig detection using YOLOv8n
+- **Tracking**: ByteTrack or BoT-SORT for persistent tracking across frames
+- **Automatic Counting**: Count pigs only once when they cross a configurable line
+- **Adjustable Settings**:
+  - Confidence and IOU thresholds
+  - Tracking algorithm selection
+  - Counting line position and direction (x/y axis, horizontal/vertical)
+  - Bounding box filtering (width, height, area)
+  - Display options (boxes, IDs, centers, confidence)
+  - Performance options (frame stride, resize)
+- **Video Output**: Annotated videos with bounding boxes, track IDs, center points, counting line, and total count
+- **Download**: Download the annotated video directly from the app
+
+## Training Details
+
+The Kaggle notebook:
+
+1. Installs required dependencies
+2. Loads Hugging Face token from Kaggle secrets
+3. Downloads the full `jonaden/pig-detection-and-tracking` dataset
+4. Extracts and converts PigDetect COCO annotations to YOLO format
+5. Trains YOLOv8n on the dataset with:
+   - 50 epochs
+   - 640x640 image size
+   - Batch size 8
+   - Early stopping (patience=10)
+6. Validates the best model
+7. Saves training outputs for download
 
 ## Notes
 
-- Do not commit raw datasets, raw videos, `.env`, `kaggle.json`, or secrets.
-- `opencv-python-headless` is used for the Streamlit app.
-- The counting line can be vertical or horizontal, and each track ID is counted only once when it crosses the line.
+- Do not commit raw datasets, videos, `.env`, `kaggle.json`, or credentials to Git
+- If your model file is larger than 100MB, consider using Git LFS or excluding it from the repo
+- The counting line can be vertical (x-axis) or horizontal (y-axis)
+- Each tracked object is counted only once when it crosses the line
+- Use the settings sidebar to fine-tune detection and counting parameters for your use case
+

@@ -1,6 +1,0 @@
-ultralytics
-opencv-python
-huggingface_hub
-kaggle
-tqdm
-pillow
