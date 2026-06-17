@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 from pathlib import Path
 import tempfile
+import shutil
+import subprocess
 from utils.video_counting import process_video
 
 # Page configuration
@@ -19,6 +21,51 @@ st.set_page_config(
 
 # Model path
 MODEL_PATH = Path("models/pigdetect_best.pt")
+
+
+def get_ffmpeg_binary():
+    """Return an ffmpeg executable path if one is available."""
+    ffmpeg_path = shutil.which("ffmpeg")
+    if ffmpeg_path:
+        return ffmpeg_path
+
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def make_browser_playable_video(input_path: Path, output_path: Path) -> bool:
+    """Transcode a video to a browser-friendly H.264 MP4 for Streamlit playback."""
+    ffmpeg_binary = get_ffmpeg_binary()
+    if not ffmpeg_binary:
+        return False
+
+    temp_path = output_path.with_suffix(".streamlit.mp4")
+    command = [
+        ffmpeg_binary,
+        "-y",
+        "-i",
+        str(input_path),
+        "-vcodec",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-an",
+        str(temp_path),
+    ]
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0 or not temp_path.exists() or temp_path.stat().st_size == 0:
+        temp_path.unlink(missing_ok=True)
+        return False
+
+    temp_path.replace(output_path)
+    return True
 
 def check_model_exists():
     """Check if the model file exists."""
@@ -220,6 +267,7 @@ def main():
         # Generate output filename
         output_filename = f"annotated_{uploaded_file.name.rsplit('.', 1)[0]}.mp4"
         output_path = str(output_dir / output_filename)
+        output_file = Path(output_path)
         
         st.info(f"Processing: {uploaded_file.name}")
         
@@ -261,6 +309,14 @@ def main():
             
             progress_bar.progress(1.0)
             status_text.text("✓ Processing complete!")
+
+            if output_file.exists() and output_file.stat().st_size > 0:
+                converted = make_browser_playable_video(output_file, output_file)
+                if not converted:
+                    st.info(
+                        "Annotated video was created, but ffmpeg was not available to convert it "
+                        "for browser playback. Download should still work."
+                    )
             
             # Display results
             st.success("✅ Video processed successfully!")
@@ -278,30 +334,38 @@ def main():
             
             with col2:
                 st.subheader("📥 Download Output")
-                with open(output_path, "rb") as f:
+                if output_file.exists():
+                    with open(output_file, "rb") as f:
+                        video_bytes = f.read()
+
                     st.download_button(
                         label="Download Annotated Video",
-                        data=f.read(),
+                        data=video_bytes,
                         file_name=output_filename,
                         mime="video/mp4",
                         use_container_width=True
                     )
+                else:
+                    st.warning("Annotated video file was not created, so download is unavailable.")
             
-            # Display video preview (first frame)
+            # Display video preview of the annotated output
             st.subheader("🎬 Video Preview")
-            cap = cv2.VideoCapture(output_path)
-            ret, frame = cap.read()
-            cap.release()
-            
-            if ret:
-                # Convert BGR to RGB
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                # Resize for display
-                display_width = 800
-                aspect_ratio = frame_rgb.shape[0] / frame_rgb.shape[1]
-                display_height = int(display_width * aspect_ratio)
-                frame_rgb = cv2.resize(frame_rgb, (display_width, display_height))
-                st.image(frame_rgb, use_container_width=True)
+            if output_file.exists() and output_file.stat().st_size > 0:
+                try:
+                    st.video(video_bytes, format="video/mp4")
+                except Exception as err:
+                    st.error(f"Unable to play annotated video in Streamlit: {err}")
+                    cap = cv2.VideoCapture(str(output_file))
+                    ret, frame = cap.read()
+                    cap.release()
+                    if ret:
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        st.image(frame_rgb, caption="First frame preview")
+            else:
+                if output_file.exists():
+                    st.warning("Annotated video file is empty.")
+                else:
+                    st.warning("Annotated video file was not created, so preview is unavailable.")
             
         except Exception as e:
             st.error(f"❌ Error processing video: {str(e)}")
