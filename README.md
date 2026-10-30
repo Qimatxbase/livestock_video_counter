@@ -4,6 +4,12 @@ YOLO-based pig detection, tracking and line-crossing counts in uploaded videos.
 
 **Technologies:** Python · YOLOv8 · OpenCV · Streamlit
 
+## Project provenance
+
+A livestock-monitoring prototype preserved as portfolio work. Course and assessment provenance have not been established from the retained materials, and the original source history and contributor credits are preserved.
+
+The saved training summary reports detector validation metrics. Those metrics do not measure video-counting accuracy or establish performance in commercial farm operations.
+
 ## What is included
 
 - Configurable line position, count direction and detection thresholds.
