@@ -37,5 +37,3 @@ The app uses models/pigdetect_best.pt. See docs/original_readme.md for the Kaggl
 This portfolio snapshot preserves work from the following repositories. Existing author credits, citations and license files are retained; team and upstream code are not presented as solely authored work.
 
 - https://github.com/Qimatxbase/pigs_count
-
-[Portfolio index](https://github.com/Qimatxbase/engineering_portfolio)
